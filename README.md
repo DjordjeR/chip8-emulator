@@ -1,10 +1,9 @@
 # Chip8 Emulator - WIP
 
-Just another Chip8 emulator written in Rust. This is my first time doing
+Just another Chip8 emulator written in Rust. This is my first time doing 
 something remotley serious in Rust, it is also my first time writing an emulator.
-
-It is still work in progress and not all instructions are implemented. None of 
-the keyboard instructions work, which means that you cannot play any games. 
+It is still work in progress and not all instructions are implemented. 
+None of the keyboard instructions work, which means that you cannot play any games.
 
 ## Running 
 
