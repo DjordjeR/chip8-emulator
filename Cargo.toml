@@ -1,0 +1,15 @@
+[package]
+name = "Chip8Emulator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+ggez = "0.7.0"
+glam = "0.20.2"
+rand = "0.7.3"
+rand_distr = "0.3.0"
+
+
