@@ -57,6 +57,8 @@ pub enum Instruction {
     ADDC(u8, u8),
     // Set Vx = Vx - Vy, set VF = NOT borrow.
     SUB(u8, u8),
+    // Skip next instruction if key with the value of Vx is not pressed.
+    SKNP(u8),
 
     Unknown(u8, u8),
 }
@@ -71,6 +73,7 @@ pub struct CPU {
     delay_timer: u8,
     sound_timer: u8,
     rnd: ThreadRng,
+    keyboard: [bool; 16],
 }
 
 impl CPU {
@@ -84,6 +87,7 @@ impl CPU {
             delay_timer: 0,
             sound_timer: 0,
             rnd: rand::thread_rng(),
+            keyboard: [false; 16],
         }
     }
     pub fn from_pc(pc: u16) -> Self {
@@ -134,6 +138,10 @@ impl CPU {
                 let n = low & 0xf;
                 Instruction::DRW(reg, y, n)
             }
+            0xe => match low {
+                0xa1 => Instruction::SKNP(reg),
+                _ => Instruction::Unknown(high, low),
+            },
             0xf => match low {
                 0x07 => Instruction::DTLD(reg),
                 0x15 => Instruction::LDDT(reg),
@@ -183,17 +191,14 @@ impl CPU {
             }
             Instruction::LDR(x, y) => self.registers[*x as usize] = self.registers[*y as usize],
             Instruction::XOR(x, y) => self.registers[*x as usize] ^= self.registers[*y as usize],
-            Instruction::AND(x, y) => {
-                self.registers[*x as usize] =
-                    self.registers[*x as usize] & self.registers[*y as usize];
-            }
+            Instruction::AND(x, y) => self.registers[*x as usize] &= self.registers[*y as usize],
             Instruction::DRW(x, y, n) => {
                 self.registers[0xf] = 0;
                 // For n rows
                 for byte in 0..*n {
                     let y = (self.registers[*y as usize] + byte) as usize % DISPLAY_HEIGHT;
                     for bit in 0..8 {
-                        let x = (self.registers[*x as usize] + bit) as usize % DISPLAY_WIDTH;
+                        let x = (self.registers[*x as usize].wrapping_add(bit)) as usize % DISPLAY_WIDTH;
                         let is_on = (memory.read(self.i + byte as u16) >> (7 - bit)) & 0x1;
                         self.registers[0xf] = is_on & self.vram[x as usize][y as usize];
                         self.vram[x as usize][y as usize] ^= is_on;
@@ -213,7 +218,6 @@ impl CPU {
             }
             Instruction::LDV(x) => {
                 for i in 0..*x {
-                    println!("Mem: {}", memory.read(self.i + i as u16));
                     self.registers[i as usize] = memory.read(self.i + i as u16);
                 }
             }
@@ -240,6 +244,7 @@ impl CPU {
                     self.registers[0xf] = 0x1;
                     return;
                 }
+                self.registers[0xf] = 0x0;
                 self.registers[*reg as usize] = res.unwrap();
             }
             Instruction::SUB(reg, y) => {
@@ -248,6 +253,12 @@ impl CPU {
                 if x > y {
                     self.registers[0xf] = 0x1;
                     self.registers[*reg as usize] = x - y;
+                }
+            }
+            Instruction::SKNP(reg) => {
+                let key_val = self.registers[*reg as usize] as usize;
+                if !self.keyboard[key_val] {
+                    self.pc += 2;
                 }
             }
             Instruction::Unknown(high, low) => {
@@ -269,6 +280,12 @@ impl CPU {
     }
     pub fn vram(&self) -> &[[u8; DISPLAY_HEIGHT]; DISPLAY_WIDTH] {
         &self.vram
+    }
+    pub fn set_key(&mut self, key: usize) {
+        self.keyboard[key] = true;
+    }
+    pub fn reset_key(&mut self, key: usize) {
+        self.keyboard[key] = false;
     }
 
     pub fn pp(&self) {

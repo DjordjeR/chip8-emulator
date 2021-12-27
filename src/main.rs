@@ -1,9 +1,9 @@
 mod cpu;
 mod memory;
 
-use ggez::event::{self};
+use ggez::event::{self, KeyCode, KeyMods};
 use ggez::graphics::{self, Color};
-use ggez::{timer, Context, ContextBuilder, GameResult};
+use ggez::{input, timer, Context, ContextBuilder, GameResult};
 use glam::*;
 
 use cpu::{CPU, DISPLAY_HEIGHT, DISPLAY_WIDTH};
@@ -19,6 +19,25 @@ const DISPLAY_SCREEN_SIZE: (f32, f32) = (
 
 const DISPLAY_MAX_FPS: u32 = 60;
 
+const KEYBOARD_KEYS: [KeyCode; 16] = [
+    KeyCode::Key0,
+    KeyCode::Key1,
+    KeyCode::Key2,
+    KeyCode::Key3,
+    KeyCode::Key4,
+    KeyCode::Key5,
+    KeyCode::Key6,
+    KeyCode::Key7,
+    KeyCode::Key8,
+    KeyCode::Key9,
+    KeyCode::A,
+    KeyCode::B,
+    KeyCode::Up,
+    KeyCode::Down,
+    KeyCode::E,
+    KeyCode::F,
+];
+
 struct Chip8 {
     memory: Memory,
     cpu: CPU,
@@ -29,6 +48,16 @@ impl Chip8 {
         Chip8 {
             memory: Memory::from_rom(rom),
             cpu: CPU::from_pc(MEMORY_START_OFFSET as u16),
+        }
+    }
+
+    fn check_keys(&mut self, ctx: &mut Context) {
+        for i in 0..KEYBOARD_KEYS.len() {
+            if input::keyboard::is_key_pressed(ctx, KEYBOARD_KEYS[i]) {
+                self.cpu.set_key(i);
+            } else {
+                self.cpu.reset_key(i);
+            }
         }
     }
 }
@@ -43,6 +72,7 @@ impl event::EventHandler<ggez::GameError> for Chip8 {
             // Decode the fetched instruction
             let instruction = self.cpu.decode(high, low);
             println!("Decoded: {:?}", instruction);
+            self.check_keys(ctx);
             // Execute instruction
             self.cpu.execute(&mut self.memory, &instruction);
 
@@ -55,8 +85,8 @@ impl event::EventHandler<ggez::GameError> for Chip8 {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.0, 0.0, 0.0, 0.0].into());
 
-        for x in 0..DISPLAY_WIDTH {
-            for y in 0..DISPLAY_HEIGHT {
+        for y in 0..DISPLAY_HEIGHT {
+            for x in 0..DISPLAY_WIDTH {
                 if self.cpu.vram()[x as usize][y as usize] == 0x0 {
                     continue;
                 }
@@ -78,9 +108,7 @@ impl event::EventHandler<ggez::GameError> for Chip8 {
                 graphics::draw(ctx, &rect, (ggez::mint::Point2 { x: 0.0, y: 0.0 },)).unwrap();
             }
         }
-        
         // TODO: check if sound should be played and play it here
-        
         graphics::present(ctx).unwrap();
         ggez::timer::yield_now();
         Ok(())
@@ -97,8 +125,7 @@ fn main() {
         .build()
         .expect("Could not create ggez context!");
 
-
-    let chip8 = Chip8::from_rom("data/IBM.ch8".to_string());
+    let chip8 = Chip8::from_rom("data/PONG".to_string());
     event::run(ctx, events_loop, chip8);
 }
 
